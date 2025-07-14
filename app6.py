@@ -23,6 +23,7 @@ st.set_page_config(layout="wide")
 # --- Sidebar con parámetros ---
 st.sidebar.header("Parámetros del Dashboard")
 
+facturas_iniciales = st.sidebar.slider("Numero Inicial de facturas", 20.0, 150.0, 100.0) 
 crecimiento_facturas = st.sidebar.slider("Crecimiento mensual de facturas (%)", 0.0, 30.0, 5.0) / 100
 tasa_A = st.sidebar.slider("Tasa base Factura A (%)", 6.0, 15.0, 9.0)
 tasa_B = st.sidebar.slider("Tasa base Factura B (%)", 8.0, 18.0, 12.0)
@@ -51,7 +52,7 @@ seguro_dias = 180
 tasa_portafolio = (tasa_A * prob_A + tasa_B * prob_B + tasa_C * prob_C) / 100
 seguro_prima = st.sidebar.slider("Prima Seguro Crédito (%)", 0.25, 0.55, 0.35) / 100
 
-haircut = st.sidebar.slider("Haircut (%)", 0.0, 0.5, 0.1)
+haircut = st.sidebar.slider("Haircut (%)", 0.1, 0.5, 0.2)
 
 # --- Simulación base ---
 meses = 12
