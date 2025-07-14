@@ -8,7 +8,7 @@ Created on Fri Jul 11 22:32:07 2025
 # -*- coding: utf-8 -*-
 """
 Created on Fri Jul 11 16:53:21 2025
-@author: marti
+@author: martinez
 """
 
 import streamlit as st
@@ -23,7 +23,7 @@ st.set_page_config(layout="wide")
 # --- Sidebar con parámetros ---
 st.sidebar.header("Parámetros del Dashboard")
 
-crecimiento_facturas = st.sidebar.slider("Crecimiento mensual de facturas (%)", 0.0, 20.0, 5.0) / 100
+crecimiento_facturas = st.sidebar.slider("Crecimiento mensual de facturas (%)", 0.0, 30.0, 5.0) / 100
 tasa_A = st.sidebar.slider("Tasa base Factura A (%)", 6.0, 15.0, 9.0)
 tasa_B = st.sidebar.slider("Tasa base Factura B (%)", 8.0, 18.0, 12.0)
 tasa_C = st.sidebar.slider("Tasa base Factura C (%)", 10.0, 25.0, 15.0)
@@ -51,6 +51,8 @@ seguro_dias = 180
 tasa_portafolio = (tasa_A * prob_A + tasa_B * prob_B + tasa_C * prob_C) / 100
 seguro_prima = st.sidebar.slider("Prima Seguro Crédito (%)", 0.25, 0.55, 0.35) / 100
 
+haircut = st.sidebar.slider("Haircut (%)", 0.0, 0.5, 0.1)
+
 # --- Simulación base ---
 meses = 12
 facturas_iniciales = 100
@@ -59,7 +61,8 @@ facturas_por_riesgo = {'A': 0, 'B': 0, 'C': 0}
 
 for mes in range(1, meses + 1):
     total_facturas = int(facturas_iniciales * ((1 + crecimiento_facturas) ** (mes - 1)))
-    montos = []
+    montos_exportados = []
+    montos_financiados = []
     tasas = []
     origen_A = 0
     tasas_A, tasas_B, tasas_C = [], [], []
@@ -71,9 +74,11 @@ for mes in range(1, meses + 1):
         tasa_base = {'A': tasa_A, 'B': tasa_B, 'C': tasa_C}[riesgo]
         variacion = np.random.uniform(-variacion_tasa, variacion_tasa)
         tasa_final = max(tasa_base + variacion, 0) / 100
-        monto = np.random.normal(15000, 3000)
-        monto = max(monto, 1000)
-        montos.append(monto)
+        valor_factura = max(np.random.normal(30000, 3000), 1000)
+
+        monto_financiado = valor_factura * (1 - haircut)
+        montos_exportados.append(valor_factura)
+        montos_financiados.append(monto_financiado)
         tasas.append(tasa_final)
 
         if riesgo == 'A':
@@ -83,11 +88,11 @@ for mes in range(1, meses + 1):
         else:
             tasas_C.append(tasa_final)
 
-        origen_A += monto * comision_originador
+        origen_A += monto_financiado * comision_originador
 
-    total_exportado = sum(montos)
-    total_financiado = sum(montos)
-    ingreso_bruto = sum([m * t / 12 for m, t in zip(montos, tasas)])
+    total_exportado = sum(montos_exportados)
+    total_financiado = sum(montos_financiados)
+    ingreso_bruto = sum([m * t / 12 for m, t in zip(montos_financiados, tasas)])
     perdidas = total_financiado * incobrabilidad * (1 - seguro_cobertura)
     recupero_seguro = total_financiado * incobrabilidad * seguro_cobertura / ((1 + tasa_portafolio) ** (seguro_dias / 360))
     costo_seguro = total_exportado * seguro_prima
@@ -113,6 +118,7 @@ for mes in range(1, meses + 1):
         "Mes": mes,
         "Facturas": total_facturas,
         "Monto Financiado": total_financiado,
+        "Monto Exportado": total_exportado,
         "Ingreso Bruto": ingreso_bruto,
         "Perdidas": perdidas,
         "Recupero Seguro": recupero_seguro,
@@ -143,6 +149,22 @@ kpi1.metric("Total Financiado", f"${df['Monto Financiado'].sum():,.0f}")
 kpi2.metric("Ingreso Total Originador", f"${df['Ingreso Originador'].sum():,.0f}")
 kpi3.metric("Pérdidas Totales", f"${df['Perdidas'].sum():,.0f}")
 kpi4.metric("Flujo Total a Equity", f"${df['Flujo a Equity'].sum():,.0f}")
+
+kpi5, kpi6, kpi7, kpi8 = st.columns(4)
+total_exportado = df["Monto Exportado"].sum()
+total_financiado = df["Monto Financiado"].sum()
+haircut_promedio = 1 - (total_financiado / total_exportado) if total_exportado else 0
+
+ingreso_total_A = df["Ingreso A"].sum()
+ingreso_total_originador = df["Ingreso Originador"].sum()
+relacion_ingresos = ingreso_total_A / ingreso_total_originador if ingreso_total_originador else 0
+
+kpi5.metric("Total Exportado", f"${total_exportado:,.0f}")
+kpi6.metric("Haircut Promedio", f"{haircut_promedio:.2%}")
+kpi7.metric("Ingreso Total Socio A", f"${ingreso_total_A:,.0f}")
+kpi8.metric("Ingreso A / Originador", f"{relacion_ingresos:.3f}")
+
+
 
 # --- Gráficos ---
 col1, col2, col3 = st.columns(3)
